@@ -42,15 +42,21 @@ class Product {
     );
   }
 
-  // Makes a copy with a different stock number (used for +/- buttons)
-  Product copyWith({int? stock}) {
+  // Preserves the saved identity while changing selected fields.
+  Product copyWith({
+    String? name,
+    String? category,
+    double? price,
+    int? stock,
+    int? minStock,
+  }) {
     return Product(
       id: id,
-      name: name,
-      category: category,
-      price: price,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      price: price ?? this.price,
       stock: stock ?? this.stock,
-      minStock: minStock,
+      minStock: minStock ?? this.minStock,
     );
   }
 }
