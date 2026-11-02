@@ -4,6 +4,8 @@ import '../models/product.dart';
 import '../services/product_service.dart';
 import 'product_form_screen.dart';
 
+enum _StockFilter { all, low, inStock, outOfStock }
+
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key, this.service});
   final ProductService? service;
@@ -16,7 +18,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   List<Product> _products = [];
   bool _loading = true;
   bool _busy = false;
-  bool _lowOnly = false;
+  _StockFilter _stockFilter = _StockFilter.all;
   String _query = '';
   String? _error;
 
@@ -125,7 +127,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final filtered = _products
         .where(
           (p) =>
-              (!_lowOnly || p.isLowStock) &&
+              (switch (_stockFilter) {
+                _StockFilter.all => true,
+                _StockFilter.low => p.isLowStock,
+                _StockFilter.inStock => p.stock > 0,
+                _StockFilter.outOfStock => p.stock == 0,
+              }) &&
               '${p.name} ${p.category}'.toLowerCase().contains(_query),
         )
         .toList();
@@ -163,10 +170,34 @@ class _ProductListScreenState extends State<ProductListScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Search products or categories',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+                suffixIcon: PopupMenuButton<_StockFilter>(
+                  tooltip: 'Filter products',
+                  initialValue: _stockFilter,
+                  icon: Icon(
+                    Icons.filter_list,
+                    color: _stockFilter == _StockFilter.all
+                        ? null
+                        : Theme.of(context).colorScheme.primary,
+                  ),
+                  onSelected: (value) => setState(() => _stockFilter = value),
+                  itemBuilder: (_) => [
+                    for (final option in _StockFilter.values)
+                      CheckedPopupMenuItem(
+                        value: option,
+                        checked: _stockFilter == option,
+                        child: Text(switch (option) {
+                          _StockFilter.all => 'All products',
+                          _StockFilter.low => 'Low stock',
+                          _StockFilter.inStock => 'In stock',
+                          _StockFilter.outOfStock => 'Out of stock',
+                        }),
+                      ),
+                  ],
+                ),
               ),
               onChanged: (value) =>
                   setState(() => _query = value.trim().toLowerCase()),
@@ -177,9 +208,17 @@ class _ProductListScreenState extends State<ProductListScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: FilterChip(
-                label: const Text('Low stock only'),
-                selected: _lowOnly,
-                onSelected: (value) => setState(() => _lowOnly = value),
+                label: Text(switch (_stockFilter) {
+                  _StockFilter.all || _StockFilter.low => 'Low stock only',
+                  _StockFilter.inStock => 'In stock',
+                  _StockFilter.outOfStock => 'Out of stock',
+                }),
+                selected: _stockFilter != _StockFilter.all,
+                onSelected: (value) => setState(
+                  () => _stockFilter = value
+                      ? _StockFilter.low
+                      : _StockFilter.all,
+                ),
               ),
             ),
           ),

@@ -38,7 +38,15 @@ void main() {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'Rice');
     await tester.enterText(fields.at(1), 'Food');
-    await tester.enterText(fields.at(2), '1500');
+    for (final price in ['-1', '0', '0.99']) {
+      await tester.enterText(fields.at(2), price);
+      await tester.ensureVisible(find.text('Save product'));
+      await tester.tap(find.text('Save product'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a price of 1 or more'), findsOneWidget);
+      expect(repository.products, isEmpty);
+    }
+    await tester.enterText(fields.at(2), '1');
     await tester.enterText(fields.at(3), '3');
     await tester.enterText(fields.at(4), '5');
     await tester.ensureVisible(find.text('Save product'));
@@ -47,6 +55,7 @@ void main() {
     expect(find.text('Rice'), findsOneWidget);
     expect(find.text('LOW STOCK'), findsOneWidget);
     expect(repository.products.values.single.stock, 3);
+    expect(repository.products.values.single.price, 1);
   });
 
   testWidgets('edit, stock controls and confirmed deletion work', (
@@ -146,5 +155,56 @@ void main() {
     await tester.tap(find.text('Save product'));
     await tester.pumpAndSettle();
     expect(repository.products.values.single.name, 'Beans');
+  });
+
+  testWidgets('filter icon combines stock choices with search', (tester) async {
+    await seed();
+    await repository.insertProduct(
+      Product(
+        name: 'Soap',
+        category: 'Cleaning',
+        price: 100,
+        stock: 0,
+        minStock: 2,
+      ),
+    );
+    await open(tester);
+    await tester.tap(find.byTooltip('Filter products'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.ancestor(
+        of: find.text('Out of stock'),
+        matching: find.byWidgetPredicate((widget) => widget is PopupMenuEntry),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Soap'), findsOneWidget);
+    expect(find.text('Rice'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'Food');
+    await tester.pumpAndSettle();
+    expect(find.text('No matching products.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Filter products'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.ancestor(
+        of: find.text('In stock'),
+        matching: find.byWidgetPredicate((widget) => widget is PopupMenuEntry),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Rice'), findsOneWidget);
+    expect(find.text('Soap'), findsNothing);
+    await tester.enterText(find.byType(TextField), '');
+    await tester.tap(find.byTooltip('Filter products'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.ancestor(
+        of: find.text('All products'),
+        matching: find.byWidgetPredicate((widget) => widget is PopupMenuEntry),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Rice'), findsOneWidget);
+    expect(find.text('Soap'), findsOneWidget);
   });
 }

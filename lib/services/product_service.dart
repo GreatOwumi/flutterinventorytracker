@@ -73,8 +73,8 @@ class ProductService {
     if (product.category.trim().isEmpty) {
       throw Exception('Category is required');
     }
-    if (!product.price.isFinite || product.price < 0) {
-      throw Exception('Price must be a finite, non-negative number');
+    if (!product.price.isFinite || product.price < 1) {
+      throw Exception('Price must be a finite number of 1 or more');
     }
     if (product.stock < 0 || product.stock > maxQuantity) {
       throw Exception('Stock must be between 0 and $maxQuantity');

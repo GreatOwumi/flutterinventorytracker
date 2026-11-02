@@ -103,8 +103,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               decimal: true,
               validator: (v) {
                 final price = double.tryParse(v?.trim() ?? '');
-                return price == null || !price.isFinite || price < 0
-                    ? 'Enter a valid, non-negative price'
+                return price == null || !price.isFinite || price < 1
+                    ? 'Enter a price of 1 or more'
                     : null;
               },
             ),

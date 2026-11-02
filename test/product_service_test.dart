@@ -36,6 +36,8 @@ void main() {
       sample().copyWith(name: ' '),
       sample().copyWith(category: ' '),
       sample().copyWith(price: -1),
+      sample().copyWith(price: 0),
+      sample().copyWith(price: 0.99),
       sample().copyWith(price: double.nan),
       sample().copyWith(price: double.infinity),
       sample().copyWith(stock: -1),
@@ -45,6 +47,21 @@ void main() {
       await expectLater(service.addProduct(product), throwsException);
     }
     expect(repository.products, isEmpty);
+  });
+
+  test('price minimum applies when creating and editing products', () async {
+    await service.addProduct(sample().copyWith(price: 1));
+    final product = (await service.getAllProducts()).single;
+    expect(product.price, 1);
+    for (final price in [-1.0, 0.0, 0.99]) {
+      await expectLater(
+        service.updateProduct(product.copyWith(price: price)),
+        throwsException,
+      );
+    }
+    expect((await service.getAllProducts()).single.price, 1);
+    await service.updateProduct(product.copyWith(price: 1.50));
+    expect((await service.getAllProducts()).single.price, 1.50);
   });
 
   test(
