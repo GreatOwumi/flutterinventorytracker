@@ -1,6 +1,7 @@
 import '../database/database_helper.dart';
 import '../database/product_repository.dart';
 import '../models/product.dart';
+import '../models/sale.dart';
 
 class ProductService {
   ProductService({ProductRepository? repository})
@@ -8,6 +9,7 @@ class ProductService {
 
   final ProductRepository _db;
   static const maxQuantity = 2147483647;
+  static const maxPrice = 999999999999.99;
 
   // Get all products
   Future<List<Product>> getAllProducts() {
@@ -21,11 +23,17 @@ class ProductService {
   }
 
   // Edit a product (after checking it is valid)
-  Future<void> updateProduct(Product product) async {
+  Future<void> updateProduct(Product product, {int? expectedStock}) async {
     _validate(product);
     _requireId(product.id);
-    if (await _db.updateProduct(_normalized(product)) != 1) {
-      throw Exception('Product no longer exists. Refresh and try again.');
+    if (await _db.updateProduct(
+          _normalized(product),
+          expectedStock: expectedStock,
+        ) !=
+        1) {
+      throw Exception(
+        'Product changed or no longer exists. Refresh and try again.',
+      );
     }
   }
 
@@ -47,6 +55,30 @@ class ProductService {
   Future<void> decreaseStock(Product product, [int amount = 1]) async {
     _validateAmount(amount);
     await _db.adjustStock(_requireId(product.id), -amount);
+  }
+
+  Future<List<Sale>> getSales() => _db.getSales();
+
+  Future<Sale> sellProduct(
+    Product product, {
+    required int quantity,
+    required String paymentMethod,
+    required String requestId,
+  }) {
+    _validateAmount(quantity);
+    if (!['cash', 'transfer'].contains(paymentMethod)) {
+      throw Exception('Choose cash or transfer');
+    }
+    if (requestId.trim().isEmpty) {
+      throw Exception('A sale reference is required');
+    }
+    return _db.sellProduct(
+      productId: _requireId(product.id),
+      quantity: quantity,
+      expectedPrice: product.price,
+      paymentMethod: paymentMethod,
+      requestId: requestId,
+    );
   }
 
   Product _normalized(Product product) => product.copyWith(
@@ -75,6 +107,12 @@ class ProductService {
     }
     if (!product.price.isFinite || product.price < 1) {
       throw Exception('Price must be a finite number of 1 or more');
+    }
+    if (product.price > maxPrice ||
+        (product.price * 100 - (product.price * 100).round()).abs() > 0.001) {
+      throw Exception(
+        'Price must have at most two decimal places and be at most $maxPrice',
+      );
     }
     if (product.stock < 0 || product.stock > maxQuantity) {
       throw Exception('Stock must be between 0 and $maxQuantity');

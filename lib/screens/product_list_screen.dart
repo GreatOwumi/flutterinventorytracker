@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../models/product.dart';
+import '../models/sale.dart';
 import '../services/product_service.dart';
 import 'product_form_screen.dart';
+import 'sell_product_screen.dart';
+import 'sales_history_screen.dart';
 
 enum _StockFilter { all, low, inStock, outOfStock }
 
 class ProductListScreen extends StatefulWidget {
-  const ProductListScreen({super.key, this.service});
+  const ProductListScreen({
+    super.key,
+    this.service,
+    this.onSignOut,
+    this.cloudMode = false,
+  });
   final ProductService? service;
+  final Future<void> Function()? onSignOut;
+  final bool cloudMode;
   @override
   State<ProductListScreen> createState() => _ProductListScreenState();
 }
@@ -122,6 +132,52 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
   }
 
+  Future<void> _sellProduct(Product product) async {
+    if (_busy || _loading || product.stock == 0) return;
+    setState(() => _busy = true);
+    try {
+      final sale = await Navigator.of(context).push<Sale>(
+        MaterialPageRoute(
+          builder: (_) =>
+              SellProductScreen(product: product, service: _service),
+        ),
+      );
+      if (!mounted) return;
+      await _loadProducts();
+      if (sale != null) {
+        _message('Sale recorded: \u20a6${sale.total.toStringAsFixed(2)}');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openSales() async {
+    if (_busy || _loading) return;
+    setState(() => _busy = true);
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => SalesHistoryScreen(service: _service),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _signOut() async {
+    if (_busy || _loading) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onSignOut!();
+    } catch (_) {
+      _message('Could not sign out. Please try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _products
@@ -142,14 +198,33 @@ class _ProductListScreenState extends State<ProductListScreen> {
         title: const Text('Inventory Tracker'),
         actions: [
           IconButton(
+            tooltip: 'Sales history',
+            onPressed: _busy || _loading ? null : _openSales,
+            icon: const Icon(Icons.receipt_long),
+          ),
+          IconButton(
             tooltip: 'Refresh inventory',
             onPressed: _busy || _loading ? null : _loadProducts,
             icon: const Icon(Icons.refresh),
           ),
+          if (widget.onSignOut != null)
+            IconButton(
+              tooltip: 'Sign out',
+              onPressed: _busy || _loading ? null : _signOut,
+              icon: const Icon(Icons.logout),
+            ),
         ],
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              widget.cloudMode
+                  ? 'Online inventory · Internet required'
+                  : 'Local mode · Saved on this device',
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -340,6 +415,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 tooltip: 'Delete ${product.name}',
                 icon: const Icon(Icons.delete_outline),
                 onPressed: enabled ? () => _deleteProduct(product) : null,
+              ),
+              FilledButton.icon(
+                onPressed: enabled && product.stock > 0
+                    ? () => _sellProduct(product)
+                    : null,
+                icon: const Icon(Icons.point_of_sale),
+                label: const Text('Sell'),
               ),
             ],
           ),

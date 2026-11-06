@@ -1,4 +1,5 @@
 # Miscellaneous
+supabase.config.json
 *.class
 *.log
 *.pyc

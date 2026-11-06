@@ -60,7 +60,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       if (product.id == null) {
         await widget.service.addProduct(product);
       } else {
-        await widget.service.updateProduct(product);
+        await widget.service.updateProduct(
+          product,
+          expectedStock: widget.product!.stock,
+        );
       }
       if (mounted) Navigator.of(context).pop(true);
     } catch (_) {
@@ -105,6 +108,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 final price = double.tryParse(v?.trim() ?? '');
                 return price == null || !price.isFinite || price < 1
                     ? 'Enter a price of 1 or more'
+                    : price > ProductService.maxPrice ||
+                          (price * 100 - (price * 100).round()).abs() > 0.001
+                    ? 'Use at most two decimal places, up to ${ProductService.maxPrice}'
                     : null;
               },
             ),
